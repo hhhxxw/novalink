@@ -144,4 +144,16 @@ public class ShortLinkRemoteServiceImpl implements ShortLinkRemoteService {
             throw new RuntimeException("远程调用批量查询分组短链接数量失败: " + e.getMessage());
         }
     }
+
+    @Override
+    public Result<String> getTitleByUrl(String url) {
+        String apiUrl = projectServiceUrl + "/api/short-link/v1/title?url=" + url;
+        try {
+            String response = restTemplate.getForObject(apiUrl, String.class);
+            return JSON.parseObject(response, new TypeReference<Result<String>>(){});
+        } catch (Exception ex) {
+            log.error("远程调用获取网站标题失败", ex);
+            throw new RuntimeException("远程调用获取网站标题失败" + ex.getMessage());
+        }
+    }
 } 

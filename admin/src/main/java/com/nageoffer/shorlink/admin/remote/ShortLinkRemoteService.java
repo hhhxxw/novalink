@@ -39,4 +39,10 @@ public interface ShortLinkRemoteService {
      * 批量查询分组短链接数量
      */
     Result<List<ShortLinkGroupCountRespDTO>> countByGidList(ShortLinkGroupCountReqDTO requestParam);
+
+
+    /**
+     * 根据url获取网站标题
+     */
+    Result<String> getTitleByUrl(String url);
 }
