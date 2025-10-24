@@ -31,6 +31,12 @@ build/
 !**/src/main/**/build/
 !**/src/test/**/build/
 
+/图片
+
+/流程图
+
+/项目文档
+
 ### VS Code ###
 .vscode/
 
