@@ -15,3 +15,16 @@ spring:
     view:
       prefix: /template/
       suffix: .xml
+  thymeleaf:
+    prefix: classpath:/template/
+    suffix: .xml
+    mode: HTML
+    cache: false
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+    cache: false
