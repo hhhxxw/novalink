@@ -24,6 +24,7 @@ import com.nageoffer.shorlink.project.dto.resp.ShortLinkCreateRespDTO;
 import com.nageoffer.shorlink.project.dto.resp.ShortLinkGroupCountRespDTO;
 import com.nageoffer.shorlink.project.dto.resp.ShortLinkPageRespDTO;
 import com.nageoffer.shorlink.project.service.ShortLinkService;
+import com.nageoffer.shorlink.project.toolkit.FaviconUtil;
 import com.nageoffer.shorlink.project.toolkit.HashUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -82,6 +83,10 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
             validDate = requestParam.getValidDate();
         }
         
+        // 获取网站favicon
+        String faviconUrl = FaviconUtil.getFaviconUrl(requestParam.getOriginUrl());
+        log.debug("获取到favicon: {}", faviconUrl);
+        
         // 组装ShortLinkDO, insert入库
         ShortLinkDO shortLinkDO = ShortLinkDO.builder()
                 .domain(requestParam.getDomain())
@@ -94,6 +99,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
                 .shortUri(shortLinkSuffix)
                 .enableStatus(1)
                 .fullShortUrl(fullShorUrl)
+                .favicon(faviconUrl)
                 .build();
 
         ShortLinkGotoDO linkGotoDO = ShortLinkGotoDO.builder()
