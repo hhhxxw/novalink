@@ -1,6 +1,7 @@
 package com.nageoffer.shorlink.admin.remote;
 
 import com.nageoffer.shorlink.admin.common.convention.result.Result;
+import com.nageoffer.shorlink.admin.dto.req.RecycleBinSaveReqDTO;
 import com.nageoffer.shorlink.admin.remote.dto.req.ShortLinkCreateReqDTO;
 import com.nageoffer.shorlink.admin.remote.dto.req.ShortLinkGroupCountReqDTO;
 import com.nageoffer.shorlink.admin.remote.dto.req.ShortLinkPageReqDTO;
@@ -45,4 +46,9 @@ public interface ShortLinkRemoteService {
      * 根据url获取网站标题
      */
     Result<String> getTitleByUrl(String url);
+
+    /**
+     * 保存回收站
+     */
+    Result<Void> saveRecycleBin(RecycleBinSaveReqDTO requestParam);
 }

@@ -4,6 +4,7 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.TypeReference;
 import com.nageoffer.shorlink.admin.common.biz.user.UserContext;
 import com.nageoffer.shorlink.admin.common.convention.result.Result;
+import com.nageoffer.shorlink.admin.dto.req.RecycleBinSaveReqDTO;
 import com.nageoffer.shorlink.admin.remote.dto.req.ShortLinkCreateReqDTO;
 import com.nageoffer.shorlink.admin.remote.dto.req.ShortLinkGroupCountReqDTO;
 import com.nageoffer.shorlink.admin.remote.dto.req.ShortLinkPageReqDTO;
@@ -154,6 +155,24 @@ public class ShortLinkRemoteServiceImpl implements ShortLinkRemoteService {
         } catch (Exception ex) {
             log.error("远程调用获取网站标题失败", ex);
             throw new RuntimeException("远程调用获取网站标题失败" + ex.getMessage());
+        }
+    }
+
+    @Override
+    public Result<Void> saveRecycleBin(RecycleBinSaveReqDTO requestParam) {
+        String url = projectServiceUrl + "/api/short-link/v1/recycle-bin/save";
+        
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        
+        HttpEntity<RecycleBinSaveReqDTO> entity = new HttpEntity<>(requestParam, headers);
+        
+        try {
+            String response = restTemplate.postForObject(url, entity, String.class);
+            return JSON.parseObject(response, new TypeReference<Result<Void>>() {});
+        } catch (Exception e) {
+            log.error("远程调用保存回收站失败", e);
+            throw new RuntimeException("远程调用保存回收站失败: " + e.getMessage());
         }
     }
 } 
