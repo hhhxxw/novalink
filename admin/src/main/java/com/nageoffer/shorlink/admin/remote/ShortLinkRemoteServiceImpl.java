@@ -20,10 +20,9 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * <p>
@@ -96,12 +95,20 @@ public class ShortLinkRemoteServiceImpl implements ShortLinkRemoteService {
 
     @Override
     public Result<ShortLinkPageResult> pageShortLink(ShortLinkPageReqDTO requestParam) {
-        String url = projectServiceUrl + "/api/short-link/v1/page?gid={gid}&current={current}&size={size}";
+        // 使用 UriComponentsBuilder 正确构建 URL，只添加非 null 参数
+        UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromHttpUrl(projectServiceUrl + "/api/short-link/v1/page");
         
-        Map<String, Object> params = new HashMap<>();
-        params.put("gid", requestParam.getGid());
-        params.put("current", requestParam.getCurrent());
-        params.put("size", requestParam.getSize());
+        if (requestParam.getGid() != null) {
+            uriBuilder.queryParam("gid", requestParam.getGid());
+        }
+        if (requestParam.getCurrent() != null) {
+            uriBuilder.queryParam("current", requestParam.getCurrent());
+        }
+        if (requestParam.getSize() != null) {
+            uriBuilder.queryParam("size", requestParam.getSize());
+        }
+        
+        String url = uriBuilder.toUriString();
         
         // 添加日志：打印请求信息
         log.info("远程调用分页查询 - URL: {}", url);
@@ -109,7 +116,7 @@ public class ShortLinkRemoteServiceImpl implements ShortLinkRemoteService {
                 requestParam.getGid(), requestParam.getCurrent(), requestParam.getSize());
         
         try {
-            String response = restTemplate.getForObject(url, String.class, params);
+            String response = restTemplate.getForObject(url, String.class);
             
             // 添加日志：打印响应
             log.info("远程调用分页查询 - 响应: {}", response);
@@ -173,6 +180,48 @@ public class ShortLinkRemoteServiceImpl implements ShortLinkRemoteService {
         } catch (Exception e) {
             log.error("远程调用保存回收站失败", e);
             throw new RuntimeException("远程调用保存回收站失败: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public Result<ShortLinkPageResult> pageRecycleBinShortLink(ShortLinkPageReqDTO requestParam) {
+        // 使用 UriComponentsBuilder 正确构建 URL，只添加非 null 参数
+        UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromHttpUrl(projectServiceUrl + "/api/short-link/v1/recycle-bin/page");
+        
+        if (requestParam.getGid() != null) {
+            uriBuilder.queryParam("gid", requestParam.getGid());
+        }
+        if (requestParam.getCurrent() != null) {
+            uriBuilder.queryParam("current", requestParam.getCurrent());
+        }
+        if (requestParam.getSize() != null) {
+            uriBuilder.queryParam("size", requestParam.getSize());
+        }
+        
+        String url = uriBuilder.toUriString();
+
+        // 添加日志：打印请求信息
+        log.info("远程调用分页查询 - URL: {}", url);
+        log.info("远程调用分页查询 - 参数: gid={}, current={}, size={}",
+                requestParam.getGid(), requestParam.getCurrent(), requestParam.getSize());
+
+        try {
+            String response = restTemplate.getForObject(url, String.class);
+
+            // 添加日志：打印响应
+            log.info("远程调用分页查询 - 响应: {}", response);
+
+            // 解析结果 - 使用简单的 ShortLinkPageResult 替代 IPage
+            Result<ShortLinkPageResult> result = JSON.parseObject(response, new TypeReference<Result<ShortLinkPageResult>>() {});
+
+            // 添加日志：打印解析后的结果
+            log.info("远程调用分页查询 - 解析后的result: {}", result);
+            log.info("远程调用分页查询 - 解析后的data: {}", result.getData());
+
+            return result;
+        } catch (Exception e) {
+            log.error("远程调用分页查询短链接失败", e);
+            throw new RuntimeException("远程调用分页查询短链接失败: " + e.getMessage());
         }
     }
 } 

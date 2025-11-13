@@ -51,4 +51,9 @@ public interface ShortLinkRemoteService {
      * 保存回收站
      */
     Result<Void> saveRecycleBin(RecycleBinSaveReqDTO requestParam);
+
+    /**
+     * 分页查询回收站短链接
+     */
+    Result<ShortLinkPageResult> pageRecycleBinShortLink(ShortLinkPageReqDTO requestParam);
 }
