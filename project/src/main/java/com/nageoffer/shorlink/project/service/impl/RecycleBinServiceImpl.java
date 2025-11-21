@@ -6,9 +6,9 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.nageoffer.shorlink.project.common.constant.RedisKeyConstant;
 import com.nageoffer.shorlink.project.dao.entity.ShortLinkDO;
 import com.nageoffer.shorlink.project.dao.mapper.ShortLinkMapper;
+import com.nageoffer.shorlink.project.dto.req.RecycleBinRecoverReqDTO;
 import com.nageoffer.shorlink.project.dto.req.RecycleBinSaveReqDTO;
 import com.nageoffer.shorlink.project.dto.req.ShortLinkPageReqDTO;
 import com.nageoffer.shorlink.project.dto.resp.ShortLinkPageRespDTO;
@@ -17,6 +17,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+
+import static com.nageoffer.shorlink.project.common.constant.RedisKeyConstant.GOTO_IS_NULL_SHORT_LINK_KEY;
+import static com.nageoffer.shorlink.project.common.constant.RedisKeyConstant.GOTO_SHORT_LINK_KEY;
 
 /**
  * <p>
@@ -32,38 +35,24 @@ import org.springframework.stereotype.Service;
 public class RecycleBinServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLinkDO> implements RecycleBinService {
     
     private final StringRedisTemplate stringRedisTemplate;
-    
+    private final ShortLinkMapper shortLinkMapper;
+
     /**
      * 保存回收站
      * @param requestParam 请求参数
      */
     @Override
     public void saveRecycleBin(RecycleBinSaveReqDTO requestParam) {
-        // 1. 更新数据库：将短链接状态改为未启用（回收站）
-        // UPDATE t_link SET enable_status = 0 WHERE full_short_url = ? AND gid = ? AND enable_status = 1 AND del_flag = 0;
         LambdaUpdateWrapper<ShortLinkDO> updateWrapper = Wrappers.lambdaUpdate(ShortLinkDO.class)
                 .eq(ShortLinkDO::getFullShortUrl, requestParam.getFullShortUrl())
                 .eq(ShortLinkDO::getGid, requestParam.getGid())
                 .eq(ShortLinkDO::getEnableStatus, 1)
                 .eq(ShortLinkDO::getDelFlag, 0);
         ShortLinkDO shortLinkDO = ShortLinkDO.builder()
-                // 将状态置零标识移动到回收站 TODO 学习建造者模式
                 .enableStatus(0)
                 .build();
-        int updateCount = baseMapper.update(shortLinkDO, updateWrapper);
-        
-        // 2. 删除缓存：如果更新成功，则删除对应的Redis缓存
-        if (updateCount > 0) {
-            String cacheKey = RedisKeyConstant.getShortLinkCacheKey(requestParam.getFullShortUrl());
-            Boolean deleteResult = stringRedisTemplate.delete(cacheKey);
-            if (Boolean.TRUE.equals(deleteResult)) {
-                log.info("✅ 回收站保存成功，已删除缓存：{}", requestParam.getFullShortUrl());
-            } else {
-                log.warn("⚠️ 回收站保存成功，但缓存删除失败或缓存不存在：{}", requestParam.getFullShortUrl());
-            }
-        } else {
-            log.warn("⚠️ 回收站保存失败：短链接不存在或已在回收站中：{}", requestParam.getFullShortUrl());
-        }
+        baseMapper.update(shortLinkDO, updateWrapper);
+        stringRedisTemplate.delete(String.format(GOTO_SHORT_LINK_KEY, requestParam.getFullShortUrl()));
     }
 
     /**
@@ -87,5 +76,28 @@ public class RecycleBinServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLin
             result.setDomain("http://" + result.getDomain());
             return result;
         });
+    }
+
+    /**
+     * 恢复短链接
+     * @param requestParam 请求参数： gid， fullShortUrl
+     */
+
+    @Override
+    public void recoverRecycleBin(RecycleBinRecoverReqDTO requestParam) {
+        // 构建数据库的更新条件
+        LambdaUpdateWrapper<ShortLinkDO> updateWrapper = Wrappers.lambdaUpdate(ShortLinkDO.class)
+                .eq(ShortLinkDO::getGid, requestParam.getGid())
+                .eq(ShortLinkDO::getFullShortUrl, requestParam.getFullShortUrl())
+                .eq(ShortLinkDO::getEnableStatus, 0)
+                .eq(ShortLinkDO::getDelFlag, 0);
+
+        ShortLinkDO shortLinkDO = ShortLinkDO.builder()
+                .enableStatus(1)
+                .build();
+
+        baseMapper.update(shortLinkDO, updateWrapper);
+
+        stringRedisTemplate.delete(String.format(GOTO_IS_NULL_SHORT_LINK_KEY, requestParam.getFullShortUrl()));
     }
 }

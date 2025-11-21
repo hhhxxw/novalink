@@ -1,6 +1,8 @@
 package com.nageoffer.shorlink.admin.controller;
 
 import com.nageoffer.shorlink.admin.common.convention.result.Result;
+import com.nageoffer.shorlink.admin.common.convention.result.Results;
+import com.nageoffer.shorlink.admin.dto.req.RecycleBinRecoverReqDTO;
 import com.nageoffer.shorlink.admin.dto.req.RecycleBinSaveReqDTO;
 import com.nageoffer.shorlink.admin.remote.ShortLinkRemoteService;
 import com.nageoffer.shorlink.admin.remote.dto.req.ShortLinkPageReqDTO;
@@ -41,5 +43,16 @@ public class RecycleBinController {
     @GetMapping("/api/short-link/admin/v1/recycle-bin/page")
     public Result<ShortLinkPageResult> pageRecycleBinShortLink(ShortLinkPageReqDTO requestParam) {
         return shortLinkRemoteService.pageRecycleBinShortLink(requestParam);
+    }
+
+    /**
+     * 恢复短链接
+     * @param requestParam 请求参数 gid, fullShortURL
+     * @return 返回值
+     */
+    @PostMapping("/api/short-link/admin/v1/recycle-bin/recover")
+    public Result<Void> recoverRecycleBin(@RequestBody RecycleBinRecoverReqDTO requestParam) {
+        shortLinkRemoteService.recoverRecycleBin(requestParam);
+        return Results.success();
     }
 }

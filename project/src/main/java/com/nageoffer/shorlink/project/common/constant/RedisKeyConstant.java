@@ -9,7 +9,17 @@ package com.nageoffer.shorlink.project.common.constant;
  * @since 2025/10/10
  */
 public class RedisKeyConstant {
-    
+
+    /**
+     * 短链接跳转前缀 Key
+     */
+    public static final String GOTO_SHORT_LINK_KEY = "short-link:goto:%s";
+
+    /**
+     * 短链接空值跳转前缀 Key
+     */
+    public static final String GOTO_IS_NULL_SHORT_LINK_KEY = "short-link:is-null:goto_%s";
+
     /**
      * 布隆过滤器：短链接创建缓存穿透
      * 用于防止查询不存在的短链接时穿透到数据库
