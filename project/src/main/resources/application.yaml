@@ -8,8 +8,9 @@ spring:
     url: jdbc:shardingsphere:classpath:shardingsphere-config-${database.env:dev}.yaml
   data:
     redis:
-      host: 127.0.0.1
-      port: 6379
+      host: common-redis-dev.magestack.cn
+      port: 19389
+      password: Sm9sVXBOYJjI030b5tz0trjpzvZzRhtZmEbv0uOImcD1wEDOPfeaqNU4PxHob/Wp
 
   mvc:
     view:
@@ -20,6 +21,12 @@ spring:
     suffix: .xml
     mode: HTML
     cache: false
+  cloud:
+    nacos:
+      discovery:
+        server-addr: common-nacos-dev.magestack.cn:8848
+        username: nacos
+        password: nacos
 
 springdoc:
   api-docs:

@@ -1,6 +1,5 @@
 server:
-  port: 8902
-
+  port: 8999
 spring:
   datasource:
     # ShardingSphere 对 Driver 自定义，实现分库分表等隐藏逻辑
@@ -9,9 +8,15 @@ spring:
     url: jdbc:shardingsphere:classpath:shardingsphere-config-${database.env:dev}.yaml
   data:
     redis:
-      host: 127.0.0.1
-      port: 6379
-
+      host: common-redis-dev.magestack.cn
+      port: 19389
+      password: Sm9sVXBOYJjI030b5tz0trjpzvZzRhtZmEbv0uOImcD1wEDOPfeaqNU4PxHob/Wp
+  cloud:
+    nacos:
+      discovery:
+        server-addr: common-nacos-dev.magestack.cn:8848
+        username: nacos
+        password: nacos
 # 短链接中台服务地址配置
 short-link:
   project:
