@@ -33,6 +33,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RBloomFilter;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
+import org.springframework.boot.autoconfigure.validation.ValidationAutoConfiguration;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -45,6 +46,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+
+import static com.nageoffer.shorlink.project.common.constant.RedisKeyConstant.GOTO_SHORT_LINK_KEY;
 
 /**
  * <p>
@@ -63,6 +66,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
     private final StringRedisTemplate stringRedisTemplate;
     private final RedissonClient redissonClient;
     private final ShortLinkMapper shortLinkMapper;
+    private final ValidationAutoConfiguration validationAutoConfiguration;
 
     @Override
     public ShortLinkCreateRespDTO createShortLink(ShortLinkCreateReqDTO requestParam) {
@@ -266,7 +270,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
                     if (shortLinkDO == null) {
                         log.warn("数据库中未找到短链接：{}", fullShortUrl);
                         // ✅ 先缓存空值（防止布隆过滤器误判导致的重复查询）
-                        cacheNullValue(fullShortUrl);
+                        stringRedisTemplate.opsForValue().set(String.format(GOTO_SHORT_LINK_KEY, fullShortUrl), "-", 30, TimeUnit.MINUTES);
                         // 再重定向
                         response.sendRedirect(ShortLinkConstant.PAGE_NOT_FOUND);
                         return;
@@ -299,8 +303,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
                 ShortLinkDO shortLinkDO = queryFromDatabase(fullShortUrl);
                 
                 if (shortLinkDO == null) {
-                    // ✅ 数据不存在，缓存空值
-                    cacheNullValue(fullShortUrl);
+                    stringRedisTemplate.opsForValue().set(String.format(GOTO_SHORT_LINK_KEY, fullShortUrl), "-", 30, TimeUnit.MINUTES);
                     response.sendRedirect(ShortLinkConstant.PAGE_NOT_FOUND);
                 } else if (shortLinkDO.getValidDate() != null && 
                            shortLinkDO.getValidDate().before(new Date())) {
@@ -539,30 +542,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
         }
     }
 
-    /**
-     * 缓存空值（防止布隆过滤器误判导致的缓存穿透）
-     * @param fullShortUrl 完整短链接
-     */
-    private void cacheNullValue(String fullShortUrl) {
-        try {
-            String cacheKey = RedisKeyConstant.getShortLinkCacheKey(fullShortUrl);
 
-            // 缓存一个特殊标记（空对象）
-            String nullMarker = "null";
-
-            // 设置较短的过期时间（5分钟），避免占用过多内存
-            stringRedisTemplate.opsForValue().set(
-                    cacheKey,
-                    nullMarker,
-                    5,
-                    TimeUnit.MINUTES
-            );
-
-            log.debug("缓存空值成功：{}, TTL=5分钟", fullShortUrl);
-        } catch (Exception e) {
-            log.error("缓存空值失败：{}", fullShortUrl, e);
-        }
-    }
     
     /**
      * 判断是否缓存了空值

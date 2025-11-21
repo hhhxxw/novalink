@@ -1,6 +1,7 @@
 package com.nageoffer.shorlink.admin.remote;
 
 import com.nageoffer.shorlink.admin.common.convention.result.Result;
+import com.nageoffer.shorlink.admin.dto.req.RecycleBinRecoverReqDTO;
 import com.nageoffer.shorlink.admin.dto.req.RecycleBinSaveReqDTO;
 import com.nageoffer.shorlink.admin.remote.dto.req.ShortLinkCreateReqDTO;
 import com.nageoffer.shorlink.admin.remote.dto.req.ShortLinkGroupCountReqDTO;
@@ -56,4 +57,10 @@ public interface ShortLinkRemoteService {
      * 分页查询回收站短链接
      */
     Result<ShortLinkPageResult> pageRecycleBinShortLink(ShortLinkPageReqDTO requestParam);
+
+    /**
+     * 恢复短链接
+     * @param requestParam 请求参数： gid， fullShortUrl
+     */
+    Result<Void> recoverRecycleBin(RecycleBinRecoverReqDTO requestParam);
 }
