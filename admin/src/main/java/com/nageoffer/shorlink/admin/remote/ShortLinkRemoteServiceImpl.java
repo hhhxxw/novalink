@@ -5,6 +5,7 @@ import com.alibaba.fastjson.TypeReference;
 import com.nageoffer.shorlink.admin.common.biz.user.UserContext;
 import com.nageoffer.shorlink.admin.common.convention.result.Result;
 import com.nageoffer.shorlink.admin.dto.req.RecycleBinRecoverReqDTO;
+import com.nageoffer.shorlink.admin.dto.req.RecycleBinRemoveReqDTO;
 import com.nageoffer.shorlink.admin.dto.req.RecycleBinSaveReqDTO;
 import com.nageoffer.shorlink.admin.remote.dto.req.ShortLinkCreateReqDTO;
 import com.nageoffer.shorlink.admin.remote.dto.req.ShortLinkGroupCountReqDTO;
@@ -233,29 +234,39 @@ public class ShortLinkRemoteServiceImpl implements ShortLinkRemoteService {
     @Override
     public Result<Void> recoverRecycleBin(RecycleBinRecoverReqDTO requestParam) {
         String url = projectServiceUrl + "/api/short-link/v1/recycle-bin/recover";
-        
-        log.info("远程调用恢复短链接开始 - URL: {}", url);
-        log.info("远程调用恢复短链接 - 请求参数: {}", JSON.toJSONString(requestParam));
-        
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        
-        // 传递用户信息到project服务
         String username = UserContext.getUsername();
         if (username != null) {
             headers.set("username", username);
-            log.info("传递用户信息 - username: {}", username);
         }
-        
         HttpEntity<RecycleBinRecoverReqDTO> entity = new HttpEntity<>(requestParam, headers);
-        
         try {
             String response = restTemplate.postForObject(url, entity, String.class);
-            log.info("远程调用恢复短链接 - 响应: {}", response);
-            log.info("远程调用恢复短链接成功");
             return JSON.parseObject(response, new TypeReference<Result<Void>>() {});
         } catch (Exception e) {
-            log.error("远程调用恢复短链接失败", e);
+            throw new RuntimeException("远程调用恢复短链接失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 删除回收站短链接
+     * @param requestParam 请求参数 gid fullShortUrl
+     */
+    @Override
+    public Result<Void> removeRecycleBin(RecycleBinRemoveReqDTO requestParam) {
+        String url = projectServiceUrl + "/api/short-link/v1/recycle-bin/delete";
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        String username = UserContext.getUsername();
+        if (username != null) {
+            headers.set("username", username);
+        }
+        HttpEntity<RecycleBinRemoveReqDTO> entity = new HttpEntity<>(requestParam, headers);
+        try {
+            String response = restTemplate.postForObject(url, entity, String.class);
+            return JSON.parseObject(response, new TypeReference<Result<Void>>() {});
+        } catch (Exception e) {
             throw new RuntimeException("远程调用恢复短链接失败: " + e.getMessage());
         }
     }
