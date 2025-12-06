@@ -1,4 +1,4 @@
-# 仿微博短链接平台
+# NovaLink分布式短链服务
 # 项目介绍
 >核心技术：SpringBoot + SpringCloudAlibaba + RocketMQ + ShardingSphere + Redis + MySQL + Sentinel
 > 
