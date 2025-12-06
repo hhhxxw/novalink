@@ -15,6 +15,7 @@ import com.nageoffer.shorlink.project.common.convention.exception.ServiceExcepti
 import com.nageoffer.shorlink.project.common.enums.ValidDateTypeEnum;
 import com.nageoffer.shorlink.project.dao.entity.ShortLinkDO;
 import com.nageoffer.shorlink.project.dao.entity.ShortLinkGotoDO;
+import com.nageoffer.shorlink.project.dao.mapper.LinkAccessStatsMapper;
 import com.nageoffer.shorlink.project.dao.mapper.ShortLinkGotoMapper;
 import com.nageoffer.shorlink.project.dao.mapper.ShortLinkMapper;
 import com.nageoffer.shorlink.project.dto.req.ShortLinkCreateReqDTO;
@@ -40,10 +41,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -67,6 +65,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
     private final RedissonClient redissonClient;
     private final ShortLinkMapper shortLinkMapper;
     private final ValidationAutoConfiguration validationAutoConfiguration;
+    private final LinkAccessStatsMapper linkAccessStatsMapper;
 
     @Override
     public ShortLinkCreateRespDTO createShortLink(ShortLinkCreateReqDTO requestParam) {
@@ -456,7 +455,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
             }
             String originUrl = requestParam.getOriginUrl();
             // 增加当前毫秒数的拼接，避免冲突
-            originUrl += System.currentTimeMillis();
+            originUrl += UUID.randomUUID().toString();
             // 下面这个短链接生成存在一定的冲突，上面增加毫秒就是为了尽量避免冲突
             shortUri = HashUtil.hashToBase62(originUrl);
             if(! shortUriCreateCachePenetrationBloomFilter.contains(requestParam.getDomain() + "/" + shortUri)){
