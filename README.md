@@ -1,163 +1,352 @@
-# NovaLink分布式短链服务
-# 项目介绍
->核心技术：SpringBoot + SpringCloudAlibaba + RocketMQ + ShardingSphere + Redis + MySQL + Sentinel
-> 
->项目描述：一个SaaS 短链接系统，为企业和个人用户提供了一个高效、安全和可靠的短链接管理平台。该平台不仅简化了长链接的管理和分享过程，还提供了深入的分析和跟踪功能，用户可以灵活地管理和优化其链接，从而实现更好的营销效果和业务成果。
+# NovaLink - 分布式短链接服务系统
 
-短链接：就是将原始的长URL通过特定的服务转换为短URL，通过访问短URL跳转到长URL
+<div align="center">
 
-Saas系统(Software as a Service 软件即服务) ：用户不用自己买服务器、安装软件，而是通过 浏览器或客户端直接使用服务，按需付费。如果这样说，那和web网站有什么区别？别急，往后看
+![Java](https://img.shields.io/badge/Java-17-orange.svg)
+![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.0.7-brightgreen.svg)
+![MyBatis Plus](https://img.shields.io/badge/MyBatis%20Plus-3.5.3.1-blue.svg)
+![ShardingSphere](https://img.shields.io/badge/ShardingSphere-5.3.2-red.svg)
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
-Saas和web网站有什么区别：Saas系统是将软件功能作为服务，是“软件产品”，用户通过订阅或者付费去使用，不是简单信息展示，更加强调“软件替代方案”。而普通的Web网站，更像是一种服务平台。
+**一个高性能、高可用的企业级短链接服务系统**
 
-Saas短链接：Saas系统就不用下载，直接访问的系统，用户可以通过付费或者订阅的方式使用Saas短链接系统，可以创建和管理自定义的短链接，同时获得有关短链接的统计数据，比如说点击次数，地理位置，设备信息等等。
+[功能特性](#-功能特性) • [技术架构](#-技术架构) • [快速开始](#-快速开始) • [项目结构](#-项目结构) • [核心功能](#-核心功能)
 
-![img_1.png](图片/img_1.png)
+</div>
 
-# 系统架构
-![img_2.png](图片/img_2.png)
+---
 
-# 一、短链接后台管理模块
+## 📖 项目简介
 
-> 这个部分主要涉及到用户模块，用户注册，用户分库分表，敏感数据的加密存储，用户登陆，短链接分组，批量创建短链接
+NovaLink 是一个基于 Spring Cloud 微服务架构的分布式短链接服务系统，为企业提供高效、安全、可靠的短链接管理平台。系统采用 SaaS 模式，支持多租户、高并发、大数据量场景，具备完善的缓存机制、分库分表、防缓存穿透等企业级特性。
 
-# 二、短链接模块
-## 01短链接跳转原理
-> 入口（Nginx）把请求打到短链服务 → 服务从 Redis 查到长链 → 返回 302 + Location → 浏览器自己去目标网站；同时把点击数据异步送到监控系统。
- 
-1. 用户/浏览器
-- 发送HTTP请求，例如https://sho.rt/abc123
+### 核心价值
 
-2. Nginx（边缘入口/网关）
-- 负责 TLS 终止、限流、WAF、反向代理、负载均衡到后面的短链接服务实例。
-- 也可以做少量静态 404/故障页兜底。
+- 🚀 **高性能**：基于 Redis 缓存 + 布隆过滤器，支持高并发访问
+- 🔒 **高可用**：分布式架构，支持水平扩展
+- 📊 **数据统计**：完整的访问统计和分析功能
+- 🛡️ **安全可靠**：防缓存穿透、防缓存击穿、数据加密存储
+- 📈 **可扩展**：支持分库分表，轻松应对大数据量
 
-3. 短链接服务（多实例）
-- 收到 /{slug}（例如 abc123），先解析租户/自定义域与 slug。
-- 访问 Redis：按 slug → longUrl 的 K/V 查映射（图中“访问 Redis 获取目标地址”）。
-- 命中：进行合法性与过期校验；
-- 未命中：通常会回源数据库并回填 Redis（这一步没画在图里，但线上必须有）。
-- 写埋点到监控/采集系统（图右下，通常经队列异步写，不阻塞跳转）。 
+---
 
-4. 返回 302
-- 服务不直接去“请求目标网站”，而是给浏览器返回一个 HTTP 302，Location 指向原始长链（图里“302 跳转目标地址”是概念连线）。
-- 浏览器拿到 302 后，自动再发起一次请求到 目标网站。
+## ✨ 功能特性
 
-5. 目标网站
-- 接收浏览器的二次请求，正常响应页面。
-- 目标站也可能有自己的监控/统计（图中虚线）。
+### 核心功能
 
-> tips: 实线表示有直接因果关系，虚线表示有间接因果关系 
+- ✅ **短链接生成**：基于 Hash 算法的短链接生成，支持自定义域名
+- ✅ **短链接跳转**：302 重定向，支持过期时间控制
+- ✅ **短链接管理**：创建、修改、删除、分页查询
+- ✅ **分组管理**：支持短链接分组，便于分类管理
+- ✅ **回收站功能**：删除的短链接可恢复
+- ✅ **访问统计**：点击量统计、访问数据分析
 
-![短链接管理.png](图片/短链接管理.png)
-### 重定向使用301和302的思考
-短链接跳转默认用 302（或 307）：
-- 需要统计、A/B、可回滚、目的地可能会改，这些都是短链的常态 → 选 临时重定向。
+### 高级特性
 
-只有当映射“永远不会再改”时才用 301（或 308）：
-- 典型是站点改版、域名迁移、URL 规范化（SEO 场景）→ 选 永久重定向。
-## 02短链接表结构
+- 🔍 **布隆过滤器**：防止缓存穿透，提升查询性能
+- 🔐 **分布式锁**：基于 Redisson 实现，防止缓存击穿
+- 💾 **缓存预热**：系统启动时自动预热热点数据
+- 🎨 **Favicon 获取**：自动获取目标网站图标
+- 📦 **分库分表**：基于 ShardingSphere 实现数据分片
+- 🔄 **缓存策略**：多级缓存，动态 TTL 设置
 
-这里关于短链接唯一的思考，要考虑是全局唯一，还是域名下唯一
-- 全局唯一：单一短链接保证在所有域名下唯一
-- 域名下唯一：单一短链接仅仅保证域名下唯一，这里也就是域名+短链接组合唯一
+---
 
-所以我这里考虑使用域名下唯一的。那么到数据库中操作，一般有两种方案
-- 建立domain（域名）和 shor_uri（短链接）的联合索引
-- 直接对字段full_short_url进行索引
+## 🏗️ 技术架构
 
-新增一个full_short_url可能会有一些冗余，但是出于查询效率的考虑（后续可能会频繁对该字段进行查询），所以直接对该字段进行联合唯一索引
+### 技术栈
 
-这里有一个注意点就是short_uri的编码要设置为utf8-bin,这样是区分大小写，否则使用默认的是不区分大小写的
-### 03 短链接生成算法
-短链接是由协议+短链接域名+短链接组成，其中需要思考的点是短链接如何获取，也就是如何将原来的长连接转换短链接。
-![img_3.png](图片/短链接的组成.png)
+| 分类 | 技术选型 |
+|------|---------|
+| **框架** | Spring Boot 3.0.7, Spring Cloud 2022.0.3 |
+| **数据库** | MySQL 8.0+ |
+| **缓存** | Redis + Redisson 3.21.3 |
+| **ORM** | MyBatis-Plus 3.5.3.1 |
+| **分库分表** | ShardingSphere 5.3.2 |
+| **服务注册** | Nacos |
+| **API 文档** | SpringDoc OpenAPI 3 |
+| **工具类** | Hutool 5.8.20, Guava |
+| **其他** | Jsoup (HTML 解析), FastJSON2 |
 
-短链接的核心目标是：
-- 把一个很长的 URL（如 https://example.com/a/b/c?id=123&token=xxxxx）转换成一个 短的字符串（如 https://t.cn/AbCdEf）。
-- 这个短字符串在系统中唯一，能映射回原始 URL。
+### 系统架构
 
-常见的方法有：哈希算法，自增ID+进制转换，随机生成（UUID），Hash+数据库校验，分布式唯一ID方案。
+```
+┌─────────────┐
+│   Gateway   │  API网关层
+└──────┬──────┘
+       │
+   ┌───┴───┐
+   │       │
+┌──▼──┐ ┌─▼────┐
+│Admin│ │Project│ 业务服务层
+└──┬──┘ └─┬────┘
+   │      │
+   └──┬───┘
+      │
+┌─────▼─────┐
+│  Redis    │  缓存层
+└─────┬─────┘
+      │
+┌─────▼─────┐
+│  MySQL    │  数据层 (分库分表)
+└───────────┘
+```
 
-这里考虑使用独特的Hash算法生成10进制数，然后再转换到62进制
+### 模块说明
+
+- **admin**：后台管理服务，提供用户管理、短链接管理等功能
+- **project**：短链接核心服务，提供短链接生成、跳转等核心功能
+- **gateway**：API 网关，统一入口，路由转发
+
+---
+
+## 🚀 快速开始
+
+### 环境要求
+
+- JDK 17+
+- Maven 3.6+
+- MySQL 8.0+
+- Redis 6.0+
+- Nacos 2.0+ (可选，用于服务注册发现)
+
+### 安装步骤
+
+1. **克隆项目**
+
+```bash
+git clone https://github.com/your-username/shortlink.git
+cd shortlink
+```
+
+2. **配置数据库**
+
+创建数据库并执行 SQL 脚本（位于 `数据库/` 目录）
+
+3. **修改配置**
+
+修改 `admin/src/main/resources/application.yaml` 和 `project/src/main/resources/application.yaml` 中的数据库和 Redis 配置
+
+```yaml
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/shortlink?useUnicode=true&characterEncoding=utf8
+    username: your_username
+    password: your_password
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
+      password: your_redis_password
+```
+
+4. **启动服务**
+
+```bash
+# 启动后台管理服务
+cd admin
+mvn spring-boot:run
+
+# 启动短链接服务
+cd project
+mvn spring-boot:run
+```
+
+5. **访问服务**
+
+- 后台管理服务：http://localhost:8902
+- 短链接服务：http://localhost:8001
+- API 文档：http://localhost:8001/swagger-ui.html
+
+---
+
+## 📁 项目结构
+
+```
+shortlink/
+├── admin/                    # 后台管理模块
+│   ├── controller/          # 控制器层
+│   ├── service/             # 业务逻辑层
+│   ├── dao/                 # 数据访问层
+│   └── dto/                 # 数据传输对象
+├── project/                 # 短链接核心模块
+│   ├── controller/          # 控制器层
+│   ├── service/             # 业务逻辑层
+│   ├── dao/                 # 数据访问层
+│   ├── config/              # 配置类
+│   ├── toolkit/             # 工具类
+│   └── job/                 # 定时任务
+├── gateway/                 # API网关模块
+├── 数据库/                   # 数据库脚本
+├── 项目文档/                 # 项目文档
+└── 流程图/                   # 系统流程图
+```
+
+---
+
+## 🔧 核心功能
+
+### 1. 短链接生成算法
+
+采用 **Hash 算法 + 62 进制转换** 的方式生成短链接：
 
 ```java
-/**
-     * 生成给短链接
-     * @param requestParam 请求参数
-     * @return 返回短链接
-     */
-    private String generateSuffix(ShortLinkCreateReqDTO requestParam){
-        String originUrl = requestParam.getOriginUrl();
-        return HashUtil.hashToBase62(originUrl);
-    }
+// 核心算法：MurmurHash + Base62 编码
+String shortUri = HashUtil.hashToBase62(originUrl + System.currentTimeMillis());
 ```
-一开始就是通过工具类进行生成短链接，考虑到会有冲突，所以判断冲突，如果冲突再次生成，但是这样可能有机会造成死循环或者重复次数过多影响程序的性能，所以统计冲突次数，如果冲突次数达到一定数量就不再比较。
 
-```java
-/**
- * 生成给短链接
- * @param requestParam 请求参数
- * @return 返回短链接
- */
-private String generateSuffix(ShortLinkCreateReqDTO requestParam){
-    int customGenerateCount = 0;
-    String shortUri;
-    while(true){
-        if(customGenerateCount > 10){
-            throw new ServiceException("短链接频繁生成， 请稍后再试");
-        }
-        String originUrl = requestParam.getOriginUrl();
-        shortUri = HashUtil.hashToBase62(originUrl);
-        LambdaQueryWrapper<ShortLinkDO> queryWrapper = Wrappers.lambdaQuery(ShortLinkDO.class)
-                .eq(ShortLinkDO::getFullShortUrl, requestParam.getDomain() + "/" + shortUri);
-        ShortLinkDO shortLinkDO = baseMapper.selectOne(queryWrapper);
-        if(shortLinkDO == null){
-            break;
-        }
-    }
-    return shortUri;
+**特点**：
+- 使用布隆过滤器快速判断短链接是否已存在
+- 支持冲突检测和重试机制
+- 最多重试 10 次，避免死循环
 
-}
+### 2. 短链接跳转流程
+
 ```
-上述方法有一些问题，使用的生成算法是固定的，就是如果数据库中存在一定会造成循环，此外，由于是到数据库中进行查询，所以并发支持不友好，需要考虑缓存。这里使用布隆过滤器去进行判断。
+用户请求 → 布隆过滤器检查 → Redis 缓存查询 → 分布式锁 → 数据库查询 → 302 重定向
+```
 
-添加RBloomFilterConfiguration配置，然后通过构造器注入，注入
+**优化策略**：
+- ✅ 布隆过滤器：第一层防护，防止缓存穿透
+- ✅ Redis 缓存：提升查询性能，减少数据库压力
+- ✅ 分布式锁：防止缓存击穿，保证数据一致性
+- ✅ 空值缓存：防止布隆过滤器误判导致的重复查询
 
-![img_3.png](图片/短链接生成算法原理.png)
+### 3. 分库分表策略
 
-创建短链接的完整过程
+基于 **ShardingSphere** 实现分库分表：
 
-![img_3.png](图片/img_3.png)
+- **分片键**：`gid` (分组标识)
+- **分片算法**：取模算法
+- **路由表**：`t_link_goto` 表存储短链接与分组的映射关系
 
-对数据库t_link进行分库分表
+### 4. 缓存策略
 
-# 学习收获
-完成后台管理的搭建，从0到1开发了后台管理系统，锻炼自己常用接口的编写能力，学习作者的开发架构，逐渐规范开发。
+- **缓存预热**：系统启动时自动加载热点数据
+- **动态 TTL**：根据短链接有效期动态设置缓存过期时间
+- **多级缓存**：Redis + 本地缓存（可选）
 
-学习到了一些工具的使用，例如ApiFox进行接口测试及管理，使用draw.io进行绘制流程图，使用git进行项目开发的记录
+---
 
-熟悉了restful api，Mybatis-plus
+## 📊 数据库设计
+
+### 核心表结构
+
+**t_link** - 短链接表（分片表）
+- 主键：`id`
+- 分片键：`gid`
+- 唯一索引：`full_short_url`
+
+**t_link_goto** - 短链接路由表
+- 存储短链接与分组的映射关系
+- 用于跳转时快速定位数据所在分片
+
+**t_user** - 用户表（分片表）
+- 主键：`id`
+- 分片键：`username`
+
+---
+
+## 🔐 安全特性
+
+- ✅ **数据加密**：敏感数据（如密码）加密存储
+- ✅ **JWT 认证**：基于 JWT 的用户认证机制
+- ✅ **防缓存穿透**：布隆过滤器 + 空值缓存
+- ✅ **防缓存击穿**：分布式锁保护
+- ✅ **SQL 注入防护**：MyBatis-Plus 参数化查询
+
+---
+
+## 📈 性能优化
+
+- **缓存命中率**：通过布隆过滤器和多级缓存提升命中率
+- **数据库优化**：分库分表 + 索引优化
+- **异步处理**：访问统计等非关键操作异步处理
+- **连接池优化**：HikariCP 连接池配置优化
+
+---
+
+## 🧪 测试
+
+### 接口测试
+
+项目提供了完整的 API 文档，可通过 Swagger UI 进行测试：
+
+```
+http://localhost:8001/swagger-ui.html
+```
+
+### 单元测试
+
+```bash
+mvn test
+```
+
+---
+
+## 📝 开发规范
+
+### 代码结构
+
+- **Controller**：处理 HTTP 请求，参数校验
+- **Service**：业务逻辑处理
+- **Mapper**：数据访问层，SQL 操作
+- **DTO**：数据传输对象，分为 `req` 和 `resp` 包
+
+### 命名规范
+
+- 实体类：`XxxDO` (Data Object)
+- 请求对象：`XxxReqDTO`
+- 响应对象：`XxxRespDTO`
+- Mapper 接口：`XxxMapper`
+- Service 接口：`XxxService`
+- Service 实现：`XxxServiceImpl`
+
+---
+
+## 🤝 贡献指南
+
+欢迎提交 Issue 和 Pull Request！
+
+1. Fork 本仓库
+2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 开启 Pull Request
+
+---
+
+## 📄 许可证
+
+本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情
+
+---
+
+## 👥 作者
+
+- **Hanxuewei** - *初始开发* - [GitHub](https://github.com/hhhxxw)
+
+---
+
+## 🙏 致谢
+
+- 感谢 [nageoffer](https://gitee.com/nageoffer/shortlink) 提供的原始项目参考
+- 感谢所有贡献者的支持
+
+---
+
+## 📞 联系方式
+
+如有问题或建议，请通过以下方式联系：
+
+- 提交 [Issue](https://github.com/hhhxxw/novalink/issues)
+- 发送邮件至：18962947617@163.com
+
+---
+
+<div align="center">
+
+**如果这个项目对你有帮助，请给一个 ⭐ Star！**
 
 
-
-# 知识积累
-
-## 什么是工具类？
-- 专门存放静态方法的类；
-
-- 用来封装一些 常用的、通用的功能；
-
-- 不依赖具体业务，在多个地方都能复用。
-
-这个项目里面用到的工具类其实挺多的，比如说再生成短链接的时候用到的HashUtil就是一个工具类。
-
-## VO和DTO之间的关系
-
-项目开发中，习惯将DTO分为两类，resp和req, 然后分创建其响应的对象，例如CreateShortLinkDTO等等，这些对象其实就是复制了VO中的一些字段，也就是选择VO中用到的字段。
-DTO中resp包下的对象就是作为Controller中的请求参数
-
-# 学习来源
-https://gitee.com/nageoffer/shortlink
-
-
+</div>
