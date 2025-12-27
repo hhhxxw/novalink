@@ -1,6 +1,8 @@
 package com.nageoffer.shorlink.project.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.date.DateUtil;
+import cn.hutool.core.date.Week;
 import cn.hutool.core.text.StrBuilder;
 import com.alibaba.fastjson.JSON;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -13,6 +15,7 @@ import com.nageoffer.shorlink.project.common.constant.ShortLinkConstant;
 import com.nageoffer.shorlink.project.common.convention.exception.ClientException;
 import com.nageoffer.shorlink.project.common.convention.exception.ServiceException;
 import com.nageoffer.shorlink.project.common.enums.ValidDateTypeEnum;
+import com.nageoffer.shorlink.project.dao.entity.LinkAccessStatsDO;
 import com.nageoffer.shorlink.project.dao.entity.ShortLinkDO;
 import com.nageoffer.shorlink.project.dao.entity.ShortLinkGotoDO;
 import com.nageoffer.shorlink.project.dao.mapper.LinkAccessStatsMapper;
@@ -207,7 +210,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
 
         // 3. 检查是否命中空值缓存（第二层防护 - 防止布隆过滤器误判）
         if (isCachedAsNull(fullShortUrl)) {
-            log.info("✅ 命中空值缓存：{}", fullShortUrl);
+            log.info("命中空值缓存：{}", fullShortUrl);
             response.sendRedirect(ShortLinkConstant.PAGE_NOT_FOUND);
             return;
         }
@@ -215,7 +218,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
         // 4. 查询 Redis 正常缓存
         ShortLinkDO cachedShortLink = getFromCache(fullShortUrl);
         if (cachedShortLink != null) {
-            log.info("✅ 缓存命中：{}", fullShortUrl);
+            log.info("缓存命中：{}", fullShortUrl);
             // 检查是否过期
             if (cachedShortLink.getValidDate() != null && cachedShortLink.getValidDate().before(new Date())) {
                 log.warn("短链接已过期：{}, 过期时间：{}", fullShortUrl, cachedShortLink.getValidDate());
@@ -224,6 +227,9 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
             }
             // 异步更新访问统计
             baseMapper.incrementClickNum(cachedShortLink.getGid(), fullShortUrl);
+
+            shortLinkStats(fullShortUrl, cachedShortLink.getGid(), request, response);
+
             // 执行重定向
             response.sendRedirect(cachedShortLink.getOriginUrl());
             log.info("短链接跳转成功（缓存）：{} -> {}", fullShortUrl, cachedShortLink.getOriginUrl());
@@ -238,11 +244,11 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
             // 尝试获取锁（等待3秒，持有10秒）
             if (lock.tryLock(3, 10, TimeUnit.SECONDS)) {
                 try {
-                    log.debug("🔒 获取分布式锁成功：{}", fullShortUrl);
+                    log.debug("获取分布式锁成功：{}", fullShortUrl);
                     
                     // 6. Double Check：空值缓存
                     if (isCachedAsNull(fullShortUrl)) {
-                        log.info("✅ Double Check 命中空值缓存");
+                        log.info("Double Check 命中空值缓存");
                         response.sendRedirect(ShortLinkConstant.PAGE_NOT_FOUND);
                         return;
                     }
@@ -250,7 +256,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
                     // 7. Double Check：正常缓存（可能其他线程已写入）
                     cachedShortLink = getFromCache(fullShortUrl);
                     if (cachedShortLink != null) {
-                        log.info("✅ Double Check 缓存命中：{}", fullShortUrl);
+                        log.info("Double Check 缓存命中：{}", fullShortUrl);
                         // 检查是否过期
                         if (cachedShortLink.getValidDate() != null && cachedShortLink.getValidDate().before(new Date())) {
                             log.warn("短链接已过期：{}", fullShortUrl);
@@ -258,17 +264,18 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
                             return;
                         }
                         baseMapper.incrementClickNum(cachedShortLink.getGid(), fullShortUrl);
+                        shortLinkStats(fullShortUrl, cachedShortLink.getGid(), request, response);
                         response.sendRedirect(cachedShortLink.getOriginUrl());
                         return;
                     }
                     
                     // 8. 查询数据库
-                    log.info("❌ 缓存未命中，查询数据库：{}", fullShortUrl);
+                    log.info("缓存未命中，查询数据库：{}", fullShortUrl);
                     ShortLinkDO shortLinkDO = queryFromDatabase(fullShortUrl);
                     
                     if (shortLinkDO == null) {
                         log.warn("数据库中未找到短链接：{}", fullShortUrl);
-                        // ✅ 先缓存空值（防止布隆过滤器误判导致的重复查询）
+                        // 先缓存空值（防止布隆过滤器误判导致的重复查询）
                         stringRedisTemplate.opsForValue().set(String.format(GOTO_SHORT_LINK_KEY, fullShortUrl), "-", 30, TimeUnit.MINUTES);
                         // 再重定向
                         response.sendRedirect(ShortLinkConstant.PAGE_NOT_FOUND);
@@ -287,6 +294,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
                     
                     // 11. 更新访问统计
                     baseMapper.incrementClickNum(shortLinkDO.getGid(), fullShortUrl);
+                    shortLinkStats(fullShortUrl, shortLinkDO.getGid(),request, response);
                     
                     // 12. 执行重定向
                     response.sendRedirect(shortLinkDO.getOriginUrl());
@@ -294,11 +302,11 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
                     
                 } finally {
                     lock.unlock();
-                    log.debug("🔓 释放分布式锁：{}", fullShortUrl);
+                    log.debug("释放分布式锁：{}", fullShortUrl);
                 }
             } else {
                 // 获取锁超时 - 降级处理
-                log.warn("⚠️ 获取分布式锁超时，降级查询：{}", fullShortUrl);
+                log.warn("获取分布式锁超时，降级查询：{}", fullShortUrl);
                 ShortLinkDO shortLinkDO = queryFromDatabase(fullShortUrl);
                 
                 if (shortLinkDO == null) {
@@ -311,6 +319,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
                 } else {
                     // 正常跳转
                     baseMapper.incrementClickNum(shortLinkDO.getGid(), fullShortUrl);
+                    shortLinkStats(fullShortUrl, shortLinkDO.getGid(), request, response);
                     response.sendRedirect(shortLinkDO.getOriginUrl());
                 }
             }
@@ -321,6 +330,39 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
         }
     }
 
+    /**
+     * 短链接统计
+     * @param fullShortUrl 完整短链接，用来标识是哪一个短链接被访问
+     * @param gid 分组标识，分库分表的分片键
+     * @param request 获取访问者信息
+     * @param response 设置Cookie（用于UV去重）
+     */
+    private void shortLinkStats(String fullShortUrl, String gid, HttpServletRequest request, HttpServletResponse response) {
+       try {
+
+           // 获取当前小时数（24小时制） new  Date() 表示当前时间
+           int hour = DateUtil.hour(new Date(), true);
+           // 获取当前是星期几
+           Week week = DateUtil.dayOfWeekEnum(new Date());
+           // 将星期转化为数值， 例如 周日-1
+           int weekValue = week.getValue();
+
+           LinkAccessStatsDO linkAccessStatsDO = LinkAccessStatsDO.builder()
+                   .pv(1)
+                   .uv(null)
+                   .uip(null)
+                   .hour(hour)
+                   .weekday(weekValue)
+                   .fullShortUrl(fullShortUrl)
+                   .gid(gid)
+                   .date(new Date())
+                   .build();
+
+           linkAccessStatsMapper.shortLinkStats(linkAccessStatsDO);
+       } catch (Exception e) {
+           log.error("短链接统计异常");
+       }
+    }
     /**
      * 修改短链接
      * @param requestParam  修改短链接请求参数
@@ -353,7 +395,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
         // select * from t_link t where gid = ? and full_short_url = ? and del_flag = 0
         log.info("查询短链接，originalGid: {}, fullShortUrl: {}", requestParam.getOriginalGid(), requestParam.getFullShortUrl());
         LambdaQueryWrapper<ShortLinkDO> queryWrapper = Wrappers.lambdaQuery(ShortLinkDO.class)
-                .eq(ShortLinkDO::getGid, requestParam.getOriginalGid())  // 使用原始gid定位记录
+                .eq(ShortLinkDO::getGid, requestParam.getOriginalGid())
                 .eq(ShortLinkDO::getFullShortUrl, requestParam.getFullShortUrl())
                 .eq(ShortLinkDO::getDelFlag, 0);
         ShortLinkDO hasShortLinkDO = baseMapper.selectOne(queryWrapper);
@@ -439,6 +481,8 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
         }
         log.info("修改短链接成功，id: {}", requestParam.getId());
     }
+
+
 
     /**
      * 生成短链接
